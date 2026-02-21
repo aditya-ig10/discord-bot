@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  rashi-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rashi-discord-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Uncomment below for logging
+    # logging:
+    #   driver: "json-file"
+    #   options:
+    #     max-size: "10m"
+    #     max-file: "3"
