@@ -162,11 +162,26 @@ async def on_message(message):
     if message.author == bot.user:
         return
     
+    # Ignore messages from other bots
+    if message.author.bot:
+        return
+    
+    # Ignore messages that are replies to the bot's error messages
+    if message.reference and message.reference.resolved:
+        if message.reference.resolved.author == bot.user:
+            # Don't respond to replies to bot messages unless explicitly mentioned
+            if not bot.user.mentioned_in(message):
+                return
+    
     # Process commands first
     await bot.process_commands(message)
     
-    # Check if bot is mentioned or message is a DM
-    if bot.user.mentioned_in(message) or isinstance(message.channel, discord.DMChannel):
+    # Check if bot is mentioned (not just replied to) or message is a DM
+    # Use a more strict check for mentions
+    is_mentioned = f'<@{bot.user.id}>' in message.content or f'<@!{bot.user.id}>' in message.content
+    is_dm = isinstance(message.channel, discord.DMChannel)
+    
+    if is_mentioned or is_dm:
         await handle_ai_response(message)
 
 async def handle_ai_response(message):
