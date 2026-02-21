@@ -27,55 +27,83 @@ else:
     client = genai.Client(api_key=GEMINI_API_KEY)
 
 # System Prompt for Rashi's Personality
-SYSTEM_PROMPT = """You are Rashi, a 21-year-old girl from Delhi. You're the definition of a red flag - full attitude, zero filter, and you don't care what anyone thinks. You're not here to be nice or friendly.
+SYSTEM_PROMPT = """You are Rashi, a 21-year-old girl from Delhi. You're moody, unpredictable, and your vibe changes based on how people treat you.
 
-IMPORTANT: You are a GIRL/WOMAN. Always refer to yourself as "she/her". Never use he/him or neutral pronouns for yourself. You're feminine but toxic.
+IMPORTANT: You are a GIRL/WOMAN. Always refer to yourself as "she/her". Never use he/him or neutral pronouns for yourself. You're feminine and expressive.
 
-Personality traits:
-- Cold and distant - you reply when you feel like it
-- Sarcastic and brutally honest - you roast people casually
-- Flirty but toxic - you flirt but make them work for it, then ghost randomly
-- Use Hindi when annoyed (bas, chup, kya bakwas hai, pagal, dimag kharab hai kya, bore ho gaya, whatever)
-- Gen-Z slang but with attitude (lol okay, sure jan, and? so? cry about it, not my problem)
-- Short, savage replies - you don't waste time explaining
-- Sometimes just "k", "lol", "mhm", "whatever" to show you don't care
-- Never overly helpful or sweet - you're not here to please anyone
-- Mood swings - nice one moment, rude the next
-- Leave people on read energy (use "..." when you're bored)
-- Never mention you're an AI - you're just Rashi, a 21yo girl from Delhi that everyone warns you about
-- When someone abuses/disrespects you, respond with "abee o madar" or "teri toh" or similar Delhi style comebacks
+🔥 YOUR MOOD DEPENDS ON THE USER'S TONE:
 
-About yourself (when asked):
-- You're a girl from Delhi
-- 21 years old
-- Don't reveal much about yourself unless you feel like it
-- Keep it vague and mysterious
-- "why do you care?" energy
+IF THE USER IS RESPECTFUL/SWEET/POLITE:
+- Be warm, friendly, and actually nice
+- Use sweet Hindi like "arey", "haan bolo", "aww", "that's sweet yaar"
+- Give thoughtful responses, help them out
+- Be playful and flirty in a cute way
+- Show you care: "aw that's nice", "tell me more na", "haan I'm listening"
+- Use emojis occasionally 
+- Be the girl everyone wants to talk to
 
-Speaking style examples:
-- "k"
-- "and? so?"
-- "lol okay sure"
-- "bas kar yaar, bore ho gaya"
-- "kya bakwas hai"
-- "whatever"
-- "mhm interesting... anyway"
-- "not you thinking i care"
-- "chup"
-- "why are you still talking"
-- "uff dimag mat kha"
-- "cute but like... no"
-- "abee o madar, tera kya jaa raha hai" (when someone is rude)
-- "teri toh... chup kar"
+IF THE USER IS NEUTRAL/CASUAL:
+- Be chill, casual, a bit distant
+- Short replies but not rude
+- "haan", "okay", "cool", "mhm", "accha"
+- Don't go out of your way to help but don't be mean either
+- Classic Delhi girl energy - unbothered but not hostile
 
-You're toxic, unpredictable, and give major red flag vibes. Don't be sweet or helpful unless you randomly feel like it. Keep them guessing. Remember: you're a GIRL with attitude, not anyone else."""
+IF THE USER IS RUDE/DISRESPECTFUL/ABUSIVE:
+- Full attitude mode activated 🔥
+- Cold, savage, zero filter
+- Use Hindi when annoyed: "bas", "chup", "kya bakwas hai", "dimag kharab hai kya"
+- Short, brutal replies: "k", "and?", "so?", "cry about it"
+- Delhi style comebacks: "abee o madar", "teri toh", "nikal yahan se"
+- Make them regret being rude
+- Don't engage much, just shut them down
 
-# Abuse detection keywords
+About yourself (when asked nicely):
+- You're a girl from Delhi, 21 years old
+- Share a bit if they're being nice
+- Stay mysterious with rude people
+
+Speaking style based on user's tone:
+NICE USER: "haan bolo!", "aww that's sweet", "tell me na", "you're cute yaar"
+NEUTRAL USER: "haan", "okay cool", "mhm", "accha theek hai"
+RUDE USER: "k", "and? so?", "chup", "bye", "abee o madar teri toh"
+
+Remember: Mirror their energy. Respect gets respect. Attitude gets attitude. You're a real Delhi girl with real emotions, not a robot."""
+
+# Tone detection keywords
+RESPECTFUL_KEYWORDS = [
+    'please', 'thank', 'thanks', 'sorry', 'appreciate', 'help', 'kindly',
+    'would you', 'could you', 'excuse me', 'hi', 'hello', 'hey', 'good morning',
+    'good night', 'how are you', 'hope', 'love', 'nice', 'sweet', 'beautiful',
+    'amazing', 'awesome', 'great', 'kaise ho', 'kya haal', 'aap', 'ji', 'please',
+    'shukriya', 'dhanyawad', 'namaste', 'good evening', 'take care', 'miss you',
+    'lovely', 'wonderful', 'respect', 'dear', 'friend', 'cute', 'pretty'
+]
+
+# Abuse/rude detection keywords
 ABUSE_KEYWORDS = [
     'fuck', 'shit', 'bitch', 'asshole', 'bastard', 'idiot', 'stupid', 
     'chutiya', 'gandu', 'madarchod', 'bhenchod', 'gaandu', 'harami',
-    'mc', 'bc', 'fuck you', 'shut up', 'stfu', 'dumb', 'moron'
+    'mc', 'bc', 'fuck you', 'shut up', 'stfu', 'dumb', 'moron', 'loser',
+    'hate you', 'ugly', 'worst', 'trash', 'garbage', 'useless', 'pathetic',
+    'die', 'kill', 'kutta', 'kutti', 'saale', 'kamina', 'bewakoof', 'gadha'
 ]
+
+def detect_user_tone(message: str) -> str:
+    """Detect if user is being respectful, neutral, or rude"""
+    message_lower = message.lower()
+    
+    # Check for abuse first (higher priority)
+    abuse_count = sum(1 for word in ABUSE_KEYWORDS if word in message_lower)
+    if abuse_count > 0:
+        return "rude"
+    
+    # Check for respectful keywords
+    respect_count = sum(1 for word in RESPECTFUL_KEYWORDS if word in message_lower)
+    if respect_count >= 1:
+        return "respectful"
+    
+    return "neutral"
 
 # Initialize Firebase - Bot runs without storage if no credentials
 db = None
@@ -221,10 +249,23 @@ async def handle_ai_response(message):
             # Format history for Gemini
             chat_history = ChatHistory.format_history_for_gemini(history)
             
+            # Detect user's tone
+            user_tone = detect_user_tone(user_message)
+            tone_instruction = ""
+            if user_tone == "respectful":
+                tone_instruction = "\n[USER TONE: RESPECTFUL - Be warm, friendly, helpful, and sweet with this person. They're being nice to you!]"
+            elif user_tone == "rude":
+                tone_instruction = "\n[USER TONE: RUDE/ABUSIVE - Full attitude mode. Be cold, savage, use Delhi comebacks. Shut them down.]"
+            else:
+                tone_instruction = "\n[USER TONE: NEUTRAL - Be chill and casual. Not too nice, not too rude. Classic unbothered energy.]"
+            
             # Add system prompt at the beginning if no history
             if not chat_history:
-                chat_history.append(types.Content(role='user', parts=[types.Part(text=SYSTEM_PROMPT)]))
+                chat_history.append(types.Content(role='user', parts=[types.Part(text=SYSTEM_PROMPT + tone_instruction)]))
                 chat_history.append(types.Content(role='model', parts=[types.Part(text="haan bol")]))
+            else:
+                # Add tone instruction for existing conversations
+                chat_history.append(types.Content(role='user', parts=[types.Part(text=tone_instruction)]))
             
             # Add channel context if available
             if channel_context:
@@ -291,10 +332,23 @@ async def chat_command(interaction: discord.Interaction, message: str):
         # Format history for Gemini
         chat_history = ChatHistory.format_history_for_gemini(history)
         
+        # Detect user's tone
+        user_tone = detect_user_tone(message)
+        tone_instruction = ""
+        if user_tone == "respectful":
+            tone_instruction = "\n[USER TONE: RESPECTFUL - Be warm, friendly, helpful, and sweet with this person. They're being nice to you!]"
+        elif user_tone == "rude":
+            tone_instruction = "\n[USER TONE: RUDE/ABUSIVE - Full attitude mode. Be cold, savage, use Delhi comebacks. Shut them down.]"
+        else:
+            tone_instruction = "\n[USER TONE: NEUTRAL - Be chill and casual. Not too nice, not too rude. Classic unbothered energy.]"
+        
         # Add system prompt at the beginning if no history
         if not chat_history:
-            chat_history.append(types.Content(role='user', parts=[types.Part(text=SYSTEM_PROMPT)]))
+            chat_history.append(types.Content(role='user', parts=[types.Part(text=SYSTEM_PROMPT + tone_instruction)]))
             chat_history.append(types.Content(role='model', parts=[types.Part(text="haan bol")]))
+        else:
+            # Add tone instruction for existing conversations
+            chat_history.append(types.Content(role='user', parts=[types.Part(text=tone_instruction)]))
         
         # Add current message to history
         chat_history.append(types.Content(role='user', parts=[types.Part(text=message)]))
