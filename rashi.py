@@ -17,8 +17,12 @@ DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 BOT_APP_ID = '1474841479997423636'
 
 # Gemini API Configuration
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyBr4wdDxpDf7IdNB5XC0YXWNBJ7T34m6K4')
-client = genai.Client(api_key=GEMINI_API_KEY)
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    print("⚠️ GEMINI_API_KEY not found in environment. Gemini features will be disabled.")
+    client = None
+else:
+    client = genai.Client(api_key=GEMINI_API_KEY)
 
 # System Prompt for Rashi's Personality
 SYSTEM_PROMPT = """You are Rashi, a 21-year-old girl from Delhi. You're the definition of a red flag - full attitude, zero filter, and you don't care what anyone thinks. You're not here to be nice or friendly.
@@ -215,12 +219,15 @@ async def handle_ai_response(message):
             # Add current message to history
             chat_history.append(types.Content(role='user', parts=[types.Part(text=user_message)]))
             
-            # Get response from Gemini
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=chat_history
-            )
-            ai_response = response.text
+            # Get response from Gemini (if configured)
+            if client:
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=chat_history
+                )
+                ai_response = response.text
+            else:
+                ai_response = "Sorry, I'm not configured to respond right now."
             
             # Check for abuse and override response if needed
             if any(keyword in user_message.lower() for keyword in ABUSE_KEYWORDS):
@@ -275,12 +282,15 @@ async def chat_command(interaction: discord.Interaction, message: str):
         # Add current message to history
         chat_history.append(types.Content(role='user', parts=[types.Part(text=message)]))
         
-        # Get response from Gemini
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=chat_history
-        )
-        ai_response = response.text
+        # Get response from Gemini (if configured)
+        if client:
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=chat_history
+            )
+            ai_response = response.text
+        else:
+            ai_response = "Sorry, I'm not configured to respond right now."
         
         # Check for abuse and override response if needed
         if any(keyword in message.lower() for keyword in ABUSE_KEYWORDS):
@@ -377,6 +387,6 @@ if __name__ == '__main__':
         print("Create a .env file with: DISCORD_TOKEN=your_token_here")
         exit(1)
     
-    print(f"✅ Token loaded: {DISCORD_TOKEN[:20]}...")
+    print("✅ Token loaded")
     print("🚀 Starting bot...")
     bot.run(DISCORD_TOKEN)
