@@ -2,17 +2,18 @@ services:
   - type: web
     name: rashi-discord-bot
     env: docker
-    region: singapore  # or oregon, frankfurt - choose closest to you
-    plan: free  # or starter for better performance
+    region: singapore
+    plan: free
     dockerfilePath: ./Dockerfile
     envVars:
       - key: DISCORD_TOKEN
         sync: false  # Set this manually in Render dashboard
       - key: GEMINI_API_KEY
-        value: AIzaSyBr4wdDxpDf7IdNB5XC0YXWNBJ7T34m6K4
+        sync: false  # Set this manually in Render dashboard
       - key: FIREBASE_API_KEY
-        value: AIzaSyBJQCqOevVzb39IlywpjEpHlnA7FJ8s8ck
+        sync: false  # Set this manually (optional)
+      - key: PORT
+        value: "10000"
       - key: PYTHONUNBUFFERED
         value: "1"
-    # Auto-deploy on push to main branch
     autoDeploy: true

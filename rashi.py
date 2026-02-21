@@ -8,6 +8,8 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 import random
+import asyncio
+from aiohttp import web
 
 # Load environment variables
 load_dotenv()
@@ -381,6 +383,32 @@ async def help_command(ctx):
     """
     await ctx.send(help_text)
 
+# Health check HTTP server for Render/hosting platforms
+async def health_handler(request):
+    return web.Response(text="OK", status=200)
+
+async def start_health_server():
+    """Start a simple HTTP server for health checks"""
+    app = web.Application()
+    app.router.add_get('/', health_handler)
+    app.router.add_get('/health', health_handler)
+    
+    port = int(os.getenv('PORT', 8080))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"✅ Health server running on port {port}")
+
+async def main():
+    """Main entry point that runs both the health server and Discord bot"""
+    # Start health server
+    await start_health_server()
+    
+    # Start Discord bot
+    async with bot:
+        await bot.start(DISCORD_TOKEN)
+
 if __name__ == '__main__':
     if not DISCORD_TOKEN:
         print("❌ ERROR: DISCORD_TOKEN not found in .env file!")
@@ -389,4 +417,4 @@ if __name__ == '__main__':
     
     print("✅ Token loaded")
     print("🚀 Starting bot...")
-    bot.run(DISCORD_TOKEN)
+    asyncio.run(main())
